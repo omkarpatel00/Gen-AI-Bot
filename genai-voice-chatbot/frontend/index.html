@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html>
+<head><title>GenAI Voice Chatbot</title></head>
+<body>
+  <h1>🎙️ Speak to the Chatbot</h1>
+  <button id="recordBtn">Record</button>
+  <p id="status">Not recording</p>
+  <p><strong>Response:</strong> <span id="response"></span></p>
+  <script>
+    let recorder, audioChunks = [];
+    document.getElementById("recordBtn").onclick = async () => {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      recorder = new MediaRecorder(stream);
+      recorder.start();
+      document.getElementById("status").innerText = "Recording...";
+      recorder.ondataavailable = e => audioChunks.push(e.data);
+      recorder.onstop = async () => {
+        const blob = new Blob(audioChunks, { type: "audio/wav" });
+        const form = new FormData();
+        form.append("audio", blob, "audio.wav");
+        const whisperRes = await fetch("http://localhost:5000/transcribe", { method: "POST", body: form });
+        const { text } = await whisperRes.json();
+        const genaiRes = await fetch("http://localhost:6000/query", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ text })
+        });
+        const { answer } = await genaiRes.json();
+        document.getElementById("response").innerText = answer;
+        document.getElementById("status").innerText = "Done.";
+      };
+      setTimeout(() => recorder.stop(), 5000);
+    };
+  </script>
+</body>
+</html>
